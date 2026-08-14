@@ -1,0 +1,18 @@
+{
+	"node": "n8n-nodes-qwen-structured-extractor",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["AI", "Data & Storage"],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://github.com/aibus-dev/n8n-qwen-extractor-node?tab=readme-ov-file#credentials"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/aibus-dev/n8n-qwen-extractor-node?tab=readme-ov-file"
+			}
+		]
+	}
+}

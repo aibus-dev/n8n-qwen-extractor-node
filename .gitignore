@@ -1,0 +1,35 @@
+# Sinh ra tự động
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+*.tgz
+
+# Bí mật — TUYỆT ĐỐI không commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Log
+*.log
+npm-debug.log*
+
+# Dữ liệu n8n chạy local
+.n8n/
+
+# Công cụ hỗ trợ dev, không thuộc package publish lên npm
+.claude
+CLAUDE.md
+.agents
+AGENTS.md
+docs
+plans
+
+# Editor / hệ điều hành
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

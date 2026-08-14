@@ -1,0 +1,65 @@
+{
+	"name": "n8n-nodes-qwen-structured-extractor",
+	"version": "0.1.0",
+	"description": "n8n node that extracts structured data from conversations using Qwen and a strict JSON Schema",
+	"license": "MIT",
+	"homepage": "https://github.com/aibus-dev/n8n-qwen-extractor-node#readme",
+	"keywords": [
+		"n8n-community-node-package",
+		"qwen",
+		"dashscope",
+		"structured-output",
+		"json-schema",
+		"extraction",
+		"ai"
+	],
+	"author": {
+		"name": "TranHai15",
+		"email": "hairobet15092005@gmail.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+ssh://git@github.com/aibus-dev/n8n-qwen-extractor-node.git"
+	},
+	"bugs": {
+		"url": "https://github.com/aibus-dev/n8n-qwen-extractor-node/issues"
+	},
+	"scripts": {
+		"build": "n8n-node build",
+		"build:watch": "tsc --watch",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"test": "jest",
+		"test:watch": "jest --watch",
+		"test:coverage": "jest --coverage",
+		"release": "n8n-node release",
+		"prepublishOnly": "n8n-node prerelease"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"strict": true,
+		"credentials": [
+			"dist/credentials/QwenStructuredExtractorApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/QwenStructuredDataExtractor/QwenStructuredDataExtractor.node.js"
+		]
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "*",
+		"@types/jest": "^29.5.14",
+		"eslint": "9.32.0",
+		"jest": "^29.7.0",
+		"prettier": "3.6.2",
+		"release-it": "^19.0.4",
+		"ts-jest": "^29.4.12",
+		"typescript": "5.9.2"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
+}
