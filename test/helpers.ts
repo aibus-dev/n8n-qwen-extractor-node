@@ -19,6 +19,19 @@ export interface IMockRequest {
 	options: IHttpRequestOptions;
 }
 
+/** Shape the node writes under the "meta" key when Include Execution Trace is on. */
+export interface ITraceMeta {
+	model: string;
+	itemIndex: number;
+	finishReason: string;
+	durationMs: number;
+	llmDurationMs: number;
+	tokens: Record<string, number>;
+	steps: Array<{ name: string; durationMs: number; status: string }>;
+	rawRequest?: unknown;
+	rawResponse?: unknown;
+}
+
 export interface IMockContext {
 	ctx: IExecuteFunctions;
 	hints: NodeExecutionHint[];

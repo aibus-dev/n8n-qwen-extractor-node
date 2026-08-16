@@ -4,7 +4,7 @@ import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { describeApiError } from './executionHints';
 import { readTokenUsage, type ExecutionTracer, type ITokenUsage } from './executionTracer';
 import { CREDENTIAL_TYPE, validateExtractionInput } from './genericFunctions';
-import { buildRequestBody, ensureJsonKeyword, stripCodeFence } from './requestBody';
+import { buildRequestBody, ensureJsonKeyword, extractJsonPayload } from './requestBody';
 
 export interface INodeOptions {
 	autoJsonKeyword?: boolean;
@@ -87,13 +87,25 @@ export async function extractItem(
 	tracer.annotate('llm_call', { finishReason, ...usage });
 	ctx.logAiEvent('ai-llm-generated-output');
 
-	const rawContent: string =
-		(response as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message
-			?.content ?? '{}';
+	const message = (
+		response as {
+			choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown } }>;
+		}
+	)?.choices?.[0]?.message;
+
+	const rawContent = typeof message?.content === 'string' ? message.content : '';
 
 	const extracted = tracer.stepSync('parse_output', () => {
+		if (rawContent.trim() === '') {
+			throw new NodeOperationError(
+				ctx.getNode(),
+				describeEmptyContent(finishReason, message?.reasoning_content),
+				{ itemIndex },
+			);
+		}
+
 		try {
-			return JSON.parse(stripCodeFence(rawContent)) as IDataObject;
+			return JSON.parse(extractJsonPayload(rawContent)) as unknown;
 		} catch {
 			const hint =
 				finishReason === 'length'
@@ -107,10 +119,24 @@ export async function extractItem(
 		}
 	});
 
-	const json: IDataObject = outputKeyName ? { [outputKeyName]: extracted } : { ...extracted };
+	const isPlainObject =
+		typeof extracted === 'object' && extracted !== null && !Array.isArray(extracted);
+
+	if (!outputKeyName && !isPlainObject) {
+		throw new NodeOperationError(
+			ctx.getNode(),
+			`Qwen returned ${describeShape(extracted)} at the top level, but an n8n item must be an object. Set the "Output Key Name" option to wrap it, or give the schema an object root.`,
+			{ itemIndex },
+		);
+	}
+
+	const json: IDataObject = outputKeyName
+		? { [outputKeyName]: extracted as IDataObject[string] }
+		: { ...(extracted as IDataObject) };
 
 	if (includeTrace) {
-		json.meta = {
+		// Never clobber an extracted field that happens to be called "meta".
+		json[firstFreeKey(json, 'meta')] = {
 			model,
 			itemIndex,
 			finishReason,
@@ -123,4 +149,43 @@ export async function extractItem(
 	}
 
 	return { json, usage, finishReason, warnings };
+}
+
+function describeEmptyContent(finishReason: string, reasoningContent: unknown): string {
+	const reasons: string[] = [];
+
+	if (finishReason === 'content_filter') {
+		reasons.push('finish_reason=content_filter — Qwen blocked the generation');
+	}
+	if (finishReason === 'length') {
+		reasons.push('finish_reason=length — the output was cut off at the token limit');
+	}
+	if (typeof reasoningContent === 'string' && reasoningContent.trim() !== '') {
+		reasons.push(
+			'the model answered in "reasoning_content" instead of "content" — turn on the "Disable Thinking Mode" option',
+		);
+	}
+
+	return reasons.length > 0
+		? `Qwen returned no content for this item: ${reasons.join('; ')}.`
+		: 'Qwen returned no content for this item — the response carried no choices[0].message.content.';
+}
+
+function describeShape(value: unknown): string {
+	if (value === null) return 'null';
+	if (Array.isArray(value)) return 'an array';
+	return `a ${typeof value}`;
+}
+
+function firstFreeKey(json: IDataObject, preferred: string): string {
+	if (!(preferred in json)) {
+		return preferred;
+	}
+
+	let suffix = 2;
+	let candidate = `_${preferred}`;
+	while (candidate in json) {
+		candidate = `_${preferred}${suffix++}`;
+	}
+	return candidate;
 }

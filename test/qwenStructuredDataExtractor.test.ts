@@ -7,6 +7,7 @@ import {
 	okResponse,
 	TEST_BASE_URL,
 	type IMockContextConfig,
+	type ITraceMeta,
 } from './helpers';
 
 const node = new QwenStructuredDataExtractor();
@@ -110,19 +111,37 @@ describe('execute - output shaping', () => {
 			options: { includeTrace: true },
 		});
 
-		const meta = (items[0].json as Record<string, any>).meta;
+		const meta = (items[0].json as unknown as { meta: ITraceMeta }).meta;
 		expect(meta.tokens).toEqual({
 			promptTokens: 812,
 			completionTokens: 155,
 			totalTokens: 967,
 			cachedTokens: 640,
 		});
-		expect(meta.steps.map((s: { name: string }) => s.name)).toEqual([
+		expect(meta.steps.map((s) => s.name)).toEqual([
 			'parse_schema',
 			'validate',
 			'llm_call',
 			'parse_output',
 		]);
+	});
+
+	it('keeps an extracted "meta" field and parks the trace beside it', async () => {
+		const { items } = await run({
+			responses: [okResponse('{"amount":2,"meta":"from the conversation"}')],
+			options: { includeTrace: true },
+		});
+
+		expect(items[0].json.meta).toBe('from the conversation');
+		expect((items[0].json as Record<string, unknown>)._meta).toBeDefined();
+	});
+
+	it('wraps a top-level array when Output Key Name is set', async () => {
+		const { items } = await run({
+			responses: [okResponse('[{"amount":1},{"amount":2}]')],
+			options: { outputKeyName: 'orders' },
+		});
+		expect(items[0].json).toEqual({ orders: [{ amount: 1 }, { amount: 2 }] });
 	});
 
 	it('adds raw request/response only when both trace and raw are on', async () => {
@@ -136,7 +155,7 @@ describe('execute - output shaping', () => {
 			responses: [okResponse('{"amount":2}')],
 			options: { includeTrace: true, includeRaw: true },
 		});
-		const meta = (withBoth.items[0].json as Record<string, any>).meta;
+		const meta = (withBoth.items[0].json as unknown as { meta: ITraceMeta }).meta;
 		expect(meta.rawRequest).toBeDefined();
 		expect(meta.rawResponse).toBeDefined();
 	});
@@ -194,6 +213,55 @@ describe('execute - failures', () => {
 			responses: [okResponse('{"amount":1}', undefined, 'length')],
 		});
 		expect(hints.some((h) => h.message.includes('cut off'))).toBe(true);
+	});
+
+	it('fails loudly instead of emitting an empty object when the response has no choices', async () => {
+		await expect(run({ responses: [{ usage: {} }] })).rejects.toThrow(/no content/i);
+	});
+
+	it('fails loudly instead of emitting an empty object when content is null', async () => {
+		await expect(
+			run({ responses: [{ choices: [{ finish_reason: 'stop', message: { content: null } }] }] }),
+		).rejects.toThrow(/no content/i);
+	});
+
+	it('says where the text went when the model answered in reasoning_content', async () => {
+		await expect(
+			run({
+				responses: [
+					{
+						choices: [
+							{ finish_reason: 'stop', message: { content: '', reasoning_content: 'thinking...' } },
+						],
+					},
+				],
+			}),
+		).rejects.toThrow(/reasoning_content/);
+	});
+
+	it('names the content filter when that is why generation stopped', async () => {
+		await expect(
+			run({
+				responses: [{ choices: [{ finish_reason: 'content_filter', message: { content: null } }] }],
+			}),
+		).rejects.toThrow(/content_filter/);
+	});
+
+	it('recovers the object when a thinking model prefixes it with reasoning', async () => {
+		const { items } = await run({
+			responses: [okResponse('Let me work through it.\n{"amount":2}')],
+		});
+		expect(items[0].json).toEqual({ amount: 2 });
+	});
+
+	it('rejects a top-level array when there is no Output Key Name to wrap it', async () => {
+		await expect(run({ responses: [okResponse('[{"amount":1}]')] })).rejects.toThrow(
+			/Output Key Name/,
+		);
+	});
+
+	it('rejects a top-level scalar rather than silently emitting an empty item', async () => {
+		await expect(run({ responses: [okResponse('null')] })).rejects.toThrow(/Output Key Name/);
 	});
 
 	it('collects errors per item when continueOnFail is on', async () => {

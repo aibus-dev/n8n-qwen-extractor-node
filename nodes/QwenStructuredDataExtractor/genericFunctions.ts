@@ -5,21 +5,62 @@ export const CREDENTIAL_TYPE = 'qwenStructuredExtractorApi';
 
 export const DEFAULT_BASE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
 
+/**
+ * Alibaba documents strict json_schema output for the Qwen3.7-Plus, Qwen3.7-Max and
+ * Qwen3.8-Max series only. Everything else answers a json_schema request with a 400.
+ * https://www.alibabacloud.com/help/en/model-studio/qwen-structured-output
+ */
+const JSON_SCHEMA_MODELS = /^qwen3\.(7-plus|7-max|8-max)\b/i;
+
+/** Ids served by this endpoint that a chat/completions call can never use. */
+const NON_CHAT_MODELS = [
+	/embedding/i,
+	/^gte-/i,
+	/^bge-/i,
+	/rerank/i,
+	/^wanx/i,
+	/^wan\d/i,
+	/^flux/i,
+	/^stable-diffusion/i,
+	/^cosyvoice/i,
+	/^sambert/i,
+	/^paraformer/i,
+	/^sensevoice/i,
+	/(^|-)tts(-|$)/i,
+	/^ocr/i,
+	/^image-/i,
+	/^video-/i,
+	/^background-generation/i,
+];
+
+export const SUPPORTS_JSON_SCHEMA = 'Supports strict JSON Schema output';
+
+export const MAY_REJECT_JSON_SCHEMA =
+	'Not documented for JSON Schema mode — may reject this node with a 400';
+
+export function supportsJsonSchema(modelId: string): boolean {
+	return JSON_SCHEMA_MODELS.test(modelId);
+}
+
+export function isChatModel(modelId: string): boolean {
+	return !NON_CHAT_MODELS.some((pattern) => pattern.test(modelId));
+}
+
 export const FALLBACK_MODELS: INodePropertyOptions[] = [
 	{
-		name: 'Qwen Plus (Recommended)',
-		value: 'qwen-plus',
-		description: 'Balanced speed and extraction accuracy',
+		name: 'Qwen3.7 Plus (Recommended)',
+		value: 'qwen3.7-plus',
+		description: `Balanced speed and extraction accuracy. ${SUPPORTS_JSON_SCHEMA}.`,
 	},
 	{
-		name: 'Qwen Turbo',
-		value: 'qwen-turbo',
-		description: 'Fastest and cheapest option',
+		name: 'Qwen3.7 Max',
+		value: 'qwen3.7-max',
+		description: `Stronger reasoning for messy conversations. ${SUPPORTS_JSON_SCHEMA}.`,
 	},
 	{
-		name: 'Qwen Max',
-		value: 'qwen-max',
-		description: 'Strongest reasoning for complex conversations',
+		name: 'Qwen3.8 Max',
+		value: 'qwen3.8-max',
+		description: `Latest flagship, best extraction quality. ${SUPPORTS_JSON_SCHEMA}.`,
 	},
 ];
 
@@ -119,13 +160,24 @@ export async function loadModels(ctx: ILoadOptionsFunctions): Promise<INodePrope
 	const entries = (parsed as { data?: Array<{ id?: unknown }> })?.data ?? [];
 	const ids = entries
 		.map((entry) => entry?.id)
-		.filter((id): id is string => typeof id === 'string' && id.length > 0);
+		.filter((id): id is string => typeof id === 'string' && id.length > 0)
+		.filter(isChatModel);
 
 	if (ids.length === 0) {
 		return FALLBACK_MODELS;
 	}
 
-	return ids.sort((a, b) => a.localeCompare(b, 'en')).map((id) => ({ name: id, value: id }));
+	// Capable models first, so the ones that actually work with this node are the obvious pick.
+	return ids
+		.sort((a, b) => {
+			const byCapability = Number(supportsJsonSchema(b)) - Number(supportsJsonSchema(a));
+			return byCapability !== 0 ? byCapability : a.localeCompare(b, 'en');
+		})
+		.map((id) => ({
+			name: id,
+			value: id,
+			description: supportsJsonSchema(id) ? SUPPORTS_JSON_SCHEMA : MAY_REJECT_JSON_SCHEMA,
+		}));
 }
 
 function safeParse(raw: string): unknown {

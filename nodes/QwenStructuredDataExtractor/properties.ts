@@ -28,7 +28,7 @@ export const qwenStructuredDataExtractorProperties: INodeProperties[] = [
 		default: '',
 		required: true,
 		description:
-			'Loaded live from the credential\'s /models endpoint; falls back to a built-in list when the endpoint does not implement that route. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+			'Loaded live from the credential\'s /models endpoint, json_schema-capable models first. This node always asks for strict JSON Schema output, which Alibaba documents only for the qwen3.7-plus, qwen3.7-max and qwen3.8-max series — other models are listed but may answer with a 400. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'System Prompt',

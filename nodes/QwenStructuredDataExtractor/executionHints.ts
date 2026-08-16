@@ -64,5 +64,9 @@ export function describeApiError(error: Error): string {
 		return `${message}\n\nHint: Qwen requires the word "json" somewhere in the messages when response_format is used. Turn on the "Auto Ensure JSON Keyword" option.`;
 	}
 
+	if (/json_schema|response_format/i.test(message)) {
+		return `${message}\n\nHint: this node always asks for strict JSON Schema output, which Alibaba documents only for the qwen3.7-plus, qwen3.7-max and qwen3.8-max series. Pick one of those in "Model Name or ID" — the dropdown flags models that are not documented for it.`;
+	}
+
 	return message;
 }

@@ -160,6 +160,21 @@ describe('describeApiError', () => {
 		expect(message).toContain('Auto Ensure JSON Keyword');
 	});
 
+	it('names the json_schema-capable models when the model rejects response_format', () => {
+		const message = describeApiError(
+			new Error(`response_format.type 'json_schema' is not supported by model qwen-turbo`),
+		);
+		expect(message).toContain('qwen3.7-plus');
+	});
+
+	it('prefers the missing-json hint over the model hint when both could match', () => {
+		const message = describeApiError(
+			new Error(`'messages' must contain the word 'json' to use 'response_format'`),
+		);
+		expect(message).toContain('Auto Ensure JSON Keyword');
+		expect(message).not.toContain('qwen3.7-plus');
+	});
+
 	it('passes unrelated errors through unchanged', () => {
 		expect(describeApiError(new Error('rate limit exceeded'))).toBe('rate limit exceeded');
 	});

@@ -13,7 +13,7 @@ export class QwenStructuredExtractorApi implements ICredentialType {
 	icon = 'file:qwen.svg' as const;
 
 	documentationUrl =
-		'https://help.aliyun.com/zh/model-studio/developer-reference/compatibility-of-openai-with-dashscope';
+		'https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope';
 
 	properties: INodeProperties[] = [
 		{

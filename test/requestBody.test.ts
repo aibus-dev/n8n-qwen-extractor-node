@@ -1,6 +1,7 @@
 import {
 	buildRequestBody,
 	ensureJsonKeyword,
+	extractJsonPayload,
 	stripCodeFence,
 	type IExtractionRequest,
 } from '../nodes/QwenStructuredDataExtractor/requestBody';
@@ -80,5 +81,53 @@ describe('stripCodeFence', () => {
 
 	it('leaves unfenced JSON untouched apart from trimming', () => {
 		expect(stripCodeFence('  {"a":1}  ')).toBe('{"a":1}');
+	});
+});
+
+describe('extractJsonPayload', () => {
+	it('returns clean JSON unchanged', () => {
+		expect(extractJsonPayload('{"a":1}')).toBe('{"a":1}');
+	});
+
+	it('unwraps a code fence like stripCodeFence does', () => {
+		expect(extractJsonPayload('```json\n{"a":1}\n```')).toBe('{"a":1}');
+	});
+
+	it('drops reasoning text a thinking model leaked before the object', () => {
+		const raw = 'Let me think about the order.\nThe user wants two.\n{"amount":2}';
+		expect(extractJsonPayload(raw)).toBe('{"amount":2}');
+	});
+
+	it('drops trailing commentary after the object', () => {
+		expect(extractJsonPayload('Here you go: {"amount":2} — hope that helps!')).toBe(
+			'{"amount":2}',
+		);
+	});
+
+	it('is not fooled by braces inside string values', () => {
+		const raw = 'note: {"address":"12 } Main St","city":"Hanoi"}';
+		expect(extractJsonPayload(raw)).toBe('{"address":"12 } Main St","city":"Hanoi"}');
+	});
+
+	it('is not fooled by an escaped quote before a brace', () => {
+		const raw = 'x {"note":"he said \\"} done\\"","ok":true}';
+		expect(extractJsonPayload(raw)).toBe('{"note":"he said \\"} done\\"","ok":true}');
+	});
+
+	it('keeps nested objects and arrays whole', () => {
+		const raw = 'result: {"items":[{"id":1},{"id":2}],"n":2}';
+		expect(extractJsonPayload(raw)).toBe('{"items":[{"id":1},{"id":2}],"n":2}');
+	});
+
+	it('extracts a top-level array', () => {
+		expect(extractJsonPayload('here: [{"id":1}]')).toBe('[{"id":1}]');
+	});
+
+	it('returns the text untouched when it holds no JSON at all', () => {
+		expect(extractJsonPayload('I cannot help with that.')).toBe('I cannot help with that.');
+	});
+
+	it('returns the text untouched when the JSON never closes', () => {
+		expect(extractJsonPayload('{"amount": ')).toBe('{"amount":');
 	});
 });

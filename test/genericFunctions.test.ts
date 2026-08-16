@@ -92,7 +92,63 @@ describe('getBaseUrl', () => {
 	});
 });
 
+describe('FALLBACK_MODELS', () => {
+	it('offers only models Alibaba documents as supporting strict json_schema', () => {
+		expect(FALLBACK_MODELS.map((m) => m.value)).toEqual([
+			'qwen3.7-plus',
+			'qwen3.7-max',
+			'qwen3.8-max',
+		]);
+	});
+});
+
 describe('loadModels', () => {
+	it('hides ids that cannot serve a chat/completions call', async () => {
+		const { ctx: loadCtx } = createLoadOptionsContext({
+			response: {
+				data: [
+					{ id: 'qwen3.7-plus' },
+					{ id: 'text-embedding-v4' },
+					{ id: 'wanx2.1-t2i-turbo' },
+					{ id: 'paraformer-realtime-v2' },
+					{ id: 'gte-rerank-v2' },
+					{ id: 'cosyvoice-v2' },
+				],
+			},
+		});
+
+		expect((await loadModels(loadCtx)).map((m) => m.value)).toEqual(['qwen3.7-plus']);
+	});
+
+	it('lists json_schema-capable models ahead of the rest', async () => {
+		const { ctx: loadCtx } = createLoadOptionsContext({
+			response: { data: [{ id: 'qwen-turbo' }, { id: 'qwen3.8-max' }, { id: 'qwen-plus' }] },
+		});
+
+		expect((await loadModels(loadCtx)).map((m) => m.value)).toEqual([
+			'qwen3.8-max',
+			'qwen-plus',
+			'qwen-turbo',
+		]);
+	});
+
+	it('flags in the dropdown which models are not documented for json_schema', async () => {
+		const { ctx: loadCtx } = createLoadOptionsContext({
+			response: { data: [{ id: 'qwen3.8-max' }, { id: 'qwen-turbo' }] },
+		});
+		const models = await loadModels(loadCtx);
+
+		expect(models.find((m) => m.value === 'qwen3.8-max')?.description).toMatch(/supports/i);
+		expect(models.find((m) => m.value === 'qwen-turbo')?.description).toMatch(/may reject/i);
+	});
+
+	it('falls back when /models lists nothing chat-capable', async () => {
+		const { ctx: loadCtx } = createLoadOptionsContext({
+			response: { data: [{ id: 'text-embedding-v4' }] },
+		});
+		expect(await loadModels(loadCtx)).toEqual(FALLBACK_MODELS);
+	});
+
 	it('returns model ids from /models sorted alphabetically', async () => {
 		const { ctx: loadCtx, requests } = createLoadOptionsContext({
 			response: { data: [{ id: 'qwen-turbo' }, { id: 'qwen-max' }, { id: 'qwen-plus' }] },
@@ -149,13 +205,13 @@ describe('loadModels', () => {
 		const { ctx: loadCtx } = createLoadOptionsContext({
 			response: { data: [{ id: 'qwen-plus' }, { id: '' }, { id: 42 }, {}] },
 		});
-		expect(await loadModels(loadCtx)).toEqual([{ name: 'qwen-plus', value: 'qwen-plus' }]);
+		expect((await loadModels(loadCtx)).map((m) => m.value)).toEqual(['qwen-plus']);
 	});
 
 	it('parses a stringified response body', async () => {
 		const { ctx: loadCtx } = createLoadOptionsContext({
 			response: JSON.stringify({ data: [{ id: 'qwen-plus' }] }),
 		});
-		expect(await loadModels(loadCtx)).toEqual([{ name: 'qwen-plus', value: 'qwen-plus' }]);
+		expect((await loadModels(loadCtx)).map((m) => m.value)).toEqual(['qwen-plus']);
 	});
 });
