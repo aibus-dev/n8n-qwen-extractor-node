@@ -1,4 +1,4 @@
-# n8n-nodes-qwen-structured-extractor
+# n8n-nodes-qwen-extractor
 
 An [n8n](https://n8n.io) community node that extracts structured data from conversation transcripts and free text using **Qwen** with **strict JSON Schema** output.
 
