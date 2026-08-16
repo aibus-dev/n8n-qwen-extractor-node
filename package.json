@@ -1,6 +1,6 @@
 {
 	"name": "@aibus/n8n-nodes-qwen-extractor",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"description": "n8n node that extracts structured data from conversations using Qwen and a strict JSON Schema",
 	"license": "MIT",
 	"homepage": "https://github.com/aibus-dev/n8n-qwen-extractor-node#readme",
