@@ -1,5 +1,5 @@
 {
-	"name": "n8n-nodes-qwen-structured-extractor",
+	"name": "n8n-nodes-qwen-extractor",
 	"version": "0.1.0",
 	"description": "n8n node that extracts structured data from conversations using Qwen and a strict JSON Schema",
 	"license": "MIT",
